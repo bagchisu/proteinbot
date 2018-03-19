@@ -1,0 +1,7 @@
+.DS_Store
+.DS_Store?
+*.pyc
+*.tmp.*
+*.wav
+myconfig.py
+stt_custom/*
