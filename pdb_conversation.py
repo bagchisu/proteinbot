@@ -19,11 +19,6 @@ conversation = watson_developer_cloud.ConversationV1(
   version = '2017-05-26'
 )
 
-# proteinbot
-workspace_id = '5ad92caa-e8c2-4b79-8369-6e3f21fbe5e1'
-# tjbot
-#workspace_id = '1263c759-1a49-4148-a8dc-0daa2f6ccfa3' # TJBot
-
 numberNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight","nine"]
 
 def text_to_speech(text):
@@ -60,7 +55,7 @@ def run_session():
     
       # Send message to Conversation service.
       response = conversation.message(
-        workspace_id = workspace_id,
+        workspace_id = myconfig.WatsonConversation.workspace_id,
         input = {
           'text': user_input
         },

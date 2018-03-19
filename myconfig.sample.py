@@ -1,8 +1,9 @@
 #Watson Conversation
 #https://www.ibm.com/watson/developercloud/conversation.html
 class WatsonConversation:
-    username = ''
-    password = ''
+	username = ''
+	password = ''
+	workspace_id = ''
 
 #Watson Speech to Text
 #https://www.ibm.com/watson/developercloud/speech-to-text.html
