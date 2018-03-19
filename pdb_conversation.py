@@ -6,6 +6,7 @@ Created on Sun Mar  4 09:18:52 2018
 @author: bagchi
 """
 import argparse
+import re
 import pdb_search as pdb
 import watson_developer_cloud
 import speech_io
@@ -23,6 +24,8 @@ workspace_id = '5ad92caa-e8c2-4b79-8369-6e3f21fbe5e1'
 # tjbot
 #workspace_id = '1263c759-1a49-4148-a8dc-0daa2f6ccfa3' # TJBot
 
+numberNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight","nine"]
+
 def text_to_speech(text):
     print '"'+text+'"'
     if tts_mode:
@@ -38,6 +41,11 @@ def speech_to_text():
         return transcript
     else:
         return raw_input('>> ')
+
+def number_words_to_number(text):
+    for val, name in enumerate(numberNames):
+        text = re.sub(r'\b'+name+r'\b', str(val), text)
+    return re.sub(r'(\d)\s+(\d)', r'\1\2', re.sub(r'(\d)\s+(\d)', r'\1\2', text))
 
 def run_session():
     # Initialize with empty value to start the conversation.
@@ -103,7 +111,7 @@ def run_session():
                 user_output += " with " + expMethod
             text_to_speech(user_output)
       
-      user_input = speech_to_text()
+      user_input = number_words_to_number(speech_to_text())
 
 if __name__ == "__main__":
     global stt_mode
