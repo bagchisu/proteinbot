@@ -42,13 +42,76 @@ def number_words_to_number(text):
         text = re.sub(r'\b'+name+r'\b', str(val), text)
     return re.sub(r'(\d)\s+(\d)', r'\1\2', re.sub(r'(\d)\s+(\d)', r'\1\2', text))
 
+def id_to_name(uid):
+    uname = pdb.getUniProtName(uid)
+    print uid, uname
+    return uname.lower()
+
+def get_exp_method(parameters):
+    expMethod = None
+    if 'expMethod' in parameters:
+        expMethod = parameters['expMethod']
+    print "method:", expMethod
+    return expMethod
+
+def get_uniprot_ids(parameters):
+    uniprotIds = []
+    context_proteins = []
+    if ('uniprotIds' in parameters) & (parameters['uniprotIds'] != None):
+        context_proteins = parameters['uniprotIds']
+    if len(context_proteins) > 0:
+        for entity in context_proteins:
+            uniprotIds.append(entity['value'])
+        # get the recommended names for uniprot ids
+        print "UniProt ids and names:"
+        uniprotNames = list(set(map(lambda u: id_to_name(u), uniprotIds)))
+        # create a list of up to 3 protein names to speak out
+        uniprotNames.sort(key = len)
+        user_output = "for "+", ".join(uniprotNames[:3])
+        if (len(uniprotNames) > 3):
+            user_output += " and "+str(len(uniprotNames) - 3)+" more."
+        text_to_speech(user_output)
+    return uniprotIds
+
+def run_pdb_structure(parameters, intent):
+    # get the experimental method from entities
+    expMethod = get_exp_method(parameters)
+    # get the uniprot ids found in the entities
+    uniprotIds = get_uniprot_ids(parameters)
+    # call the PDB REST service for PDB ids
+    pdbIds = pdb.search(",".join(uniprotIds), expMethod)
+    user_output = ''
+    if (intent == 'structure-exists'):
+        user_output = "Yes. " if len(pdbIds) > 0 else "No. "
+    user_output += "There" + (" is a structure" if (len(pdbIds) == 1) else " are no structures" if (len(pdbIds) == 0) else (" are "+str(len(pdbIds))+" structures"))
+    if (expMethod != None):
+        user_output += " with " + expMethod
+    text_to_speech(user_output)
+    # return a unique list of pdbids
+    return list(set(pdbIds))
+
+def run_pdb_ligands(parameters, intent, current_pdb_ids):
+    ligands = pdb.getLigandNames(current_pdb_ids)
+    if len(ligands) > 0:
+        if len(ligands) > 1:
+            user_output = "There are " + str(len(ligands)) + " ligands."
+        else:
+            user_output = "There is one ligand."
+        if intent == 'ligand-names':
+            user_output += " "
+            user_output += ", ".join(ligands)
+    else:
+        user_output = "There are no ligands."
+    text_to_speech(user_output)
+    return current_pdb_ids
+
 def run_session():
     # Initialize with empty value to start the conversation.
     user_input = ''
     user_output = ''
     intent = ''
     context = {}
-    context_proteins = []
+    current_pdb_ids = []
     
     # Main input/output loop
     while True:
@@ -83,28 +146,11 @@ def run_session():
         current_action = response['actions'][0]['name']
         print(current_action)
         parameters = response['actions'][0]['parameters']
-        if (current_action == 'PdbStructureFromUniProt'):
-            expMethod = None
-            uniprotIds = []
-            if 'expMethod' in parameters:
-                expMethod = parameters['expMethod']
-            if ('uniprotIds' in parameters) & (parameters['uniprotIds'] != None):
-                context_proteins = parameters['uniprotIds']
-            for entity in context_proteins:
-                uniprotIds.append(entity['value'])
-    
-            print "method:", expMethod
-            print "uniprotIds:", ",".join(uniprotIds)
-            
-            # call the PDB REST service for PDB ids
-            pdbIds = pdb.search(",".join(uniprotIds), expMethod)
-            user_output = ''
-            if (intent == 'structure-exists'):
-                user_output = "Yes. " if len(pdbIds) > 0 else "No. "
-            user_output += "There" + (" is a structure" if (len(pdbIds) == 1) else " are no structures" if (len(pdbIds) == 0) else (" are "+str(len(pdbIds))+" structures"))
-            if (expMethod != None):
-                user_output += " with " + expMethod
-            text_to_speech(user_output)
+        if current_action == 'PdbStructureFromUniProt':
+            current_pdb_ids = run_pdb_structure(parameters, intent)
+            print current_pdb_ids
+        elif current_action == 'PdbLigands':
+            current_pdb_ids = run_pdb_ligands(parameters, intent, current_pdb_ids)
       
       user_input = number_words_to_number(speech_to_text())
 

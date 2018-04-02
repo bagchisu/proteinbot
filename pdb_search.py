@@ -7,8 +7,10 @@ Created on Sun Mar  4 09:18:52 2018
 """
 
 import requests
+import xml.etree.ElementTree as ET
+from sets import Set
 
-URL = 'https://www.rcsb.org/pdb/rest/search/'
+SEARCH_URL = 'https://www.rcsb.org/pdb/rest/search/'
 
 COMP_QUERY = """
 <orgPdbCompositeQuery version=\"1.0\">
@@ -42,20 +44,90 @@ QUERY = """
 
 HEADERS= {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'}
 
+CUSTOM_REPORT_URL = 'http://www.rcsb.org/pdb/rest/customReport'
+
 class ExpMethod:
     XRay = 'X-RAY'
     SolutionNMR = 'SOLUTION NMR'
     ElectronMicroscopy = 'ELECTRON MICROSCOPY'
 
+_uniprotNamesDict = dict()
+for line in open('uniprot_names.txt', 'r'):
+    up_data = line.split('\t')
+    _uniprotNamesDict[up_data[0]] = up_data[1].strip()
+
+def getUniProtName(uniprotId):
+    return _uniprotNamesDict[uniprotId]
+
 def search(uniprotIds, expMethod=None):
     
     if (expMethod is None):
-        response = requests.post(URL, data=QUERY.format(uniprotIds=uniprotIds), headers=HEADERS)
+        response = requests.post(SEARCH_URL, data=QUERY.format(uniprotIds=uniprotIds), headers=HEADERS)
     else:
-        response = requests.post(URL, data=COMP_QUERY.format(uniprotIds=uniprotIds, expMethod=expMethod), headers=HEADERS)
+        response = requests.post(SEARCH_URL, data=COMP_QUERY.format(uniprotIds=uniprotIds, expMethod=expMethod), headers=HEADERS)
     
     if response.status_code == 200:
-        pdb_ids = response.text.split()
-        return pdb_ids
+        pdbChainIds = response.text.split()
+        pdbIds = []
+        for p in pdbChainIds:
+            pdbIds.append(p.split(':')[0])
+        return pdbIds
     else:
         print response.status_code
+
+def runCustomReport(pdbIds, fieldNames):
+    query = '?pdbids=' + ','.join(pdbIds) + '&customReportColumns=' + ','.join(fieldNames)
+    url = CUSTOM_REPORT_URL + query
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.text
+    else:
+        print "failure with url:", url
+        print response.status_code
+
+def runStandardReport(pdbIds, reportName):
+    query = '?pdbids=' + ','.join(pdbIds) + '&reportName=' + reportName
+    url = CUSTOM_REPORT_URL + query
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.text
+    else:
+        print "failure with url:", url
+        print response.status_code
+   
+
+def getInfo(pdbIds, fieldName, elementName):
+    xmlStr = runCustomReport(pdbIds, [fieldName])
+    root = ET.fromstring(xmlStr)
+    elementTexts = Set()
+    for element in root.iter(elementName):
+        elementTexts.add(element.text)
+    return list(filter(lambda e: e != 'null', elementTexts))
+
+def getLigandNames(pdbIds):
+    return getInfo(pdbIds, 'ligandName', 'dimEntity.ligandName')
+
+def getStructureTitles(pdbIds):
+    return getInfo(pdbIds, 'structureTitle', 'dimStructure.structureTitle')
+
+def getCitations(pdbIds):
+    return getInfo(pdbIds, '', '')
+
+def getReleaseYears(pdbIds):
+    relDates = getInfo(pdbIds, 'releaseDate', 'dimStructure.releaseDate')
+    dateDict = dict()
+    for relDate in relDates:
+        y = relDate.split('-')[0]
+        dateDict[y] = dateDict.get(y, 0) + 1
+    return dateDict
+
+def getCitationYears(pdbIds):
+    xmlStr = runStandardReport(pdbIds, 'Citation')
+    root = ET.fromstring(xmlStr)
+    dateDict = dict()
+    for element in root.iter('VCitation.publicationYear'):
+        y = element.text
+        if y == 'null':
+            y = "Unknown"
+        dateDict[y] = dateDict.get(y, 0) + 1
+    return dateDict

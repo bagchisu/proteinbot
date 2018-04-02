@@ -55,18 +55,16 @@ def listen():
         raise
     
     if (time.time() - _last_session_time_ < LISTEN_THRESHOLD or _trigger_word_detected_(in_data)):
-        audio_io.save_speech(in_data, 'temp_stt')
-        with open('temp_stt.wav', 'rb') as audio_rec_file:
-            stt = _SPEECH_TO_TEXT_.recognize(model=myconfig.WatsonSpeechToText.model,customization_id=myconfig.WatsonSpeechToText.customization_id,audio=audio_rec_file,content_type='audio/wav')
-            #print(json.dumps(stt, indent=2))
-            try:
-                stt_result = stt['results'][stt['result_index']]['alternatives'][0]
-                stt_transcript = stt_result['transcript']
-                stt_confidence = stt_result['confidence']
-            except IndexError:
-                stt_transcript = "Sorry, I couldn't recognize what you said."
-                stt_confidence = 0.0
-        
+        print "Recognizing..."
+        stt = _SPEECH_TO_TEXT_.recognize(model=myconfig.WatsonSpeechToText.model,customization_id=myconfig.WatsonSpeechToText.customization_id,audio=in_data,content_type='audio/l16;rate=16000;channels=1')
+        #print(json.dumps(stt, indent=2))
+        try:
+            stt_result = stt['results'][stt['result_index']]['alternatives'][0]
+            stt_transcript = stt_result['transcript']
+            stt_confidence = stt_result['confidence']
+        except IndexError:
+            stt_transcript = "Sorry, I couldn't recognize what you said."
+            stt_confidence = 0.0
         _last_session_time_ = time.time()
         return (stt_transcript, stt_confidence)
     else:
@@ -81,10 +79,8 @@ def speak(transcript):
     if (_SILENCE_THRESHOLD_ == None):
         _calibrate_silence_()
     
-    with open('temp_tts.wav', 'wb') as audio_play_file:
-        audio_play_file.write(_TEXT_TO_SPEECH_.synthesize(transcript, accept='audio/wav',voice=myconfig.WatsonTextToSpeech.voice))
-    
-    audio_io.load_play_speech('temp_tts')
+    out_data = _TEXT_TO_SPEECH_.synthesize(transcript, accept='audio/l16;rate=16000;channels=1',voice=myconfig.WatsonTextToSpeech.voice)
+    audio_io.play_speech(out_data)
     _last_session_time_ = time.time()
     
 if(__name__ == '__main__'):
@@ -105,15 +101,16 @@ if(__name__ == '__main__'):
     'pt-BR_IsabelaVoice'
     ]
     while (True):
-#        (t,c) = listen()
-        t = raw_input('>> ')
-        c = 1
-#        print t, c
+        (t,c) = listen()
+#        t = raw_input('>> ')
+#        c = 1
+        print t, c
         if c > 0.5:
-            for v in voices:
-                myconfig.WatsonTextToSpeech.voice = v
-                print v
-                speak(t)
+            speak(t)
+            # for v in voices:
+            #     myconfig.WatsonTextToSpeech.voice = v
+            #     print v
+            #     speak(t)
      
     
     
