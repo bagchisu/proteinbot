@@ -5,13 +5,10 @@ This project uses Watson Speech to Text, Conversation, and Text to Speech servic
 Copy `myconfig.sample.py` to `myconfig.py` and provide username and passwords for the various Watson services.
 
 # Intents
-Information about protein structures from PDB for a protein name. 
+Information about protein structures from PDB for a specified protein name. Optionally, the structures could be limited to one of these identification methods: x-ray crystallography, solution NMR, electron microscopy:
 - `#structure-exists` If any structures are available for that particular protein (Y/N)
 - `#structure-count` Number of structures available for a protein
-Optionally, the structures could be limited to one of these structure identification methods: 
-   - x-ray crystallography
-   - solution NMR
-   - electron microscopy
+
 Ligands information from PDB:
 - `#ligand-count` Number of ligands associated with proteins in context
 - `#ligand-names` Names of ligands associated with proteins in context
@@ -29,3 +26,4 @@ Utilities:
 
 # Reference websites:
 1. RCSB Protein Data Bank (PDB): http://www.rcsb.org/
+1. UniProt KB: http://www.uniprot.org/
