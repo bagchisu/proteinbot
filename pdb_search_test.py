@@ -7,6 +7,7 @@ Created on Sun Mar  4 09:18:52 2018
 """
 
 import argparse
+import webbrowser
 import pdb_search as pdb
 
 parser = argparse.ArgumentParser(description='Get protein structure info from PDB given UniProt accession numbers.')
@@ -34,7 +35,7 @@ if expMethod != None:
 else:
     print "Using any method"
  
-pdbs = pdb.search(uniprotIds, expMethod)
+pdbs, rcsb_url = pdb.search(uniprotIds, expMethod)
 
 if len(pdbs) == 0:
     print "No structures were found in PDB"
@@ -58,3 +59,6 @@ citationYears = pdb.getCitationYears(pdbs)
 print "\nCitation years:"
 for y in sorted(citationYears):
     print y, citationYears[y]
+
+print "Opening", rcsb_url
+webbrowser.open(rcsb_url)

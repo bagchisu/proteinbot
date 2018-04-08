@@ -84,33 +84,12 @@ def speak(transcript):
     _last_session_time_ = time.time()
     
 if(__name__ == '__main__'):
-    voices = [
-    'de-DE_BirgitVoice',
-    'de-DE_DieterVoice',
-    'en-GB_KateVoice',
-    'en-US_AllisonVoice',
-    'en-US_LisaVoice',
-    'en-US_MichaelVoice',
-    'es-ES_LauraVoice',
-    'es-ES_EnriqueVoice',
-    'es-LA_SofiaVoice',
-    'es-US_SofiaVoice',
-    'fr-FR_ReneeVoice',
-    'it-IT_FrancescaVoice',
-    'ja-JP_EmiVoice',
-    'pt-BR_IsabelaVoice'
-    ]
     while (True):
+        print "Listening..."
         (t,c) = listen()
-#        t = raw_input('>> ')
-#        c = 1
         print t, c
         if c > 0.5:
-            speak(t)
-            # for v in voices:
-            #     myconfig.WatsonTextToSpeech.voice = v
-            #     print v
-            #     speak(t)
-     
+            print '"'+t+'"'
+            speak(t)     
     
     

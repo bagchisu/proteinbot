@@ -7,6 +7,7 @@ Created on Sun Mar  4 09:18:52 2018
 """
 import argparse
 import re
+import webbrowser
 import pdb_search as pdb
 import watson_developer_cloud
 import speech_io
@@ -54,6 +55,16 @@ def get_exp_method(parameters):
     print "method:", expMethod
     return expMethod
 
+def get_names(uniprotIds):
+    # get the recommended names for uniprot ids
+    uniprotNames = list(set(map(lambda u: id_to_name(u), uniprotIds)))
+    # create a list of up to 3 protein names to speak out
+    uniprotNames.sort(key = len)
+    user_output = " for "+", ".join(uniprotNames[:3])
+    if (len(uniprotNames) > 3):
+        user_output += " and "+str(len(uniprotNames) - 3)+" more."
+    return user_output
+
 def get_uniprot_ids(parameters):
     uniprotIds = []
     context_proteins = []
@@ -62,36 +73,23 @@ def get_uniprot_ids(parameters):
     if len(context_proteins) > 0:
         for entity in context_proteins:
             uniprotIds.append(entity['value'])
-        # get the recommended names for uniprot ids
-        print "UniProt ids and names:"
-        uniprotNames = list(set(map(lambda u: id_to_name(u), uniprotIds)))
-        # create a list of up to 3 protein names to speak out
-        uniprotNames.sort(key = len)
-        user_output = "for "+", ".join(uniprotNames[:3])
-        if (len(uniprotNames) > 3):
-            user_output += " and "+str(len(uniprotNames) - 3)+" more."
-        text_to_speech(user_output)
     return uniprotIds
 
-def run_pdb_structure(parameters, intent):
-    # get the experimental method from entities
-    expMethod = get_exp_method(parameters)
-    # get the uniprot ids found in the entities
-    uniprotIds = get_uniprot_ids(parameters)
-    # call the PDB REST service for PDB ids
-    pdbIds = pdb.search(",".join(uniprotIds), expMethod)
+def get_pdb_ids(uniprot_ids, exp_method):
+    pdb_ids, rcsb_url = pdb.search(",".join(uniprot_ids), exp_method)
+    print ",".join(pdb_ids)
+    return list(set(pdb_ids)), rcsb_url
+
+def run_pdb_structure(intent, uniprot_ids, pdbIds):
     user_output = ''
     if (intent == 'structure-exists'):
         user_output = "Yes. " if len(pdbIds) > 0 else "No. "
-    user_output += "There" + (" is a structure" if (len(pdbIds) == 1) else " are no structures" if (len(pdbIds) == 0) else (" are "+str(len(pdbIds))+" structures"))
-    if (expMethod != None):
-        user_output += " with " + expMethod
+    user_output += "There" + (" is one structure" if (len(pdbIds) == 1) else " are no structures" if (len(pdbIds) == 0) else (" are "+str(len(pdbIds))+" structures"))
+    user_output += get_names(uniprot_ids)
     text_to_speech(user_output)
-    # return a unique list of pdbids
-    return list(set(pdbIds))
 
-def run_pdb_ligands(parameters, intent, current_pdb_ids):
-    ligands = pdb.getLigandNames(current_pdb_ids)
+def run_pdb_ligands(intent, uniprot_ids, pdb_ids):
+    ligands = pdb.getLigandNames(pdb_ids)
     if len(ligands) > 0:
         if len(ligands) > 1:
             user_output = "There are " + str(len(ligands)) + " ligands."
@@ -102,8 +100,55 @@ def run_pdb_ligands(parameters, intent, current_pdb_ids):
             user_output += ", ".join(ligands)
     else:
         user_output = "There are no ligands."
+    user_output += get_names(uniprot_ids)
     text_to_speech(user_output)
-    return current_pdb_ids
+
+def run_show_details(uniprotIds, url):
+    print url
+    if url != '':
+        text_to_speech("Here are the details " + get_names(uniprotIds))
+        webbrowser.open(url)
+    else:
+        text_to_speech("Sorry, there is no protein information to show.")
+
+def run_release_dates(pdb_ids):
+    if pdb_ids:
+        release_years = pdb.getReleaseYears(pdb_ids)
+        user_output = "Here are the latest release dates: "
+        for y in sorted(release_years, reverse=True)[:3]:
+            user_output += str(release_years[y]) + " in " + str(y) + "; "
+        if len(release_years) > 3:
+            user_output += " And more from earlier years."
+    else:
+        user_output = "There are no structures."
+    text_to_speech(user_output)
+
+def run_citation_dates(pdb_ids):
+    if pdb_ids:
+        citation_years = pdb.getCitationYears(pdb_ids)
+        unk = citation_years.pop('null', 0)
+        user_output = "Here are the latest citation dates: "
+        for y in sorted(citation_years, reverse=True)[:3]:
+            user_output += str(citation_years[y]) + " in " + str(y) + "; "
+        if len(citation_years) > 3:
+            user_output += " And more from earlier years."
+        if unk > 0:
+            user_output += " Also, "+str(unk)+" with unknown publication year."
+    else:
+        user_output = "There are no structures."
+    text_to_speech(user_output)
+
+def run_structure_titles(pdb_ids):
+    if pdb_ids:
+        titles = pdb.getStructureTitles(pdb_ids)
+        print "\n".join(titles)
+        text_to_speech("Here are the structure titles.")
+        for t in titles[:3]:
+            text_to_speech(t)
+        if (len(titles) > 3):
+            text_to_speech("And "+str(len(titles)-3)+" more.")
+    else:
+        text_to_speech("There are no structures.")
 
 def run_session():
     # Initialize with empty value to start the conversation.
@@ -111,57 +156,80 @@ def run_session():
     user_output = ''
     intent = ''
     context = {}
+    current_uniprot_ids = []
     current_pdb_ids = []
+    current_rcsb_url = ''
     
     # Main input/output loop
     while True:
-    
-      # Send message to Conversation service.
-      response = conversation.message(
-        workspace_id = myconfig.WatsonConversation.workspace_id,
-        input = {
-          'text': user_input
-        },
-        context = context
-      )
-    
-      # If an intent was detected, print it to the console.
-      if response['intents']:
-        intent = response['intents'][0]['intent']
-    
-      # Print the output from dialog, if any.
-      if response['output']['text']:
-        user_output = response['output']['text'][0]
-        text_to_speech(user_output)
-    
-      # Break out of the loop when conversation is ended.
-      if intent == 'end-conversation':
-          break
+        # Send message to Conversation service.
+        response = conversation.message(
+            workspace_id = myconfig.WatsonConversation.workspace_id,
+            input = {
+            'text': user_input
+            },
+            context = context
+        )
+        
+        # If an intent was detected, print it to the console.
+        if response['intents']:
+            intent = response['intents'][0]['intent']
+        
+        # Print the output from dialog, if any.
+        if response['output']['text']:
+            user_output = response['output']['text'][0]
+            text_to_speech(user_output)
+        
+        # Break out of the loop when conversation is ended.
+        if intent == 'end-conversation':
+            break
+        elif intent == 'show-details':
+            run_show_details(current_uniprot_ids, current_rcsb_url)
+        elif intent == 'release-dates':
+            run_release_dates(current_pdb_ids)
+        elif intent == 'citation-dates':
+            run_citation_dates(current_pdb_ids)
+        elif intent == 'structure-titles':
+            run_structure_titles(current_pdb_ids)
 
-      # Update the stored context with the latest received from the dialog.
-      context = response['context']
-      
-      # Check for action flags sent by the dialog.
-      if 'actions' in response:
-        current_action = response['actions'][0]['name']
-        print(current_action)
-        parameters = response['actions'][0]['parameters']
-        if current_action == 'PdbStructureFromUniProt':
-            current_pdb_ids = run_pdb_structure(parameters, intent)
-            print current_pdb_ids
-        elif current_action == 'PdbLigands':
-            current_pdb_ids = run_pdb_ligands(parameters, intent, current_pdb_ids)
-      
-      user_input = number_words_to_number(speech_to_text())
+        # Update the stored context with the latest received from the dialog.
+        context = response['context']
+        
+        # Check for action flags sent by the dialog.
+        if 'actions' in response:
+            current_action = response['actions'][0]['name']
+            print(current_action)
+            parameters = response['actions'][0]['parameters']
+            # get the experimental method from entities
+            exp_method = get_exp_method(parameters)
+            # get the uniprot ids found in the entities (if not found, use current ones)
+            uniprot_ids = get_uniprot_ids(parameters)
+            if len(uniprot_ids) > 0:
+                current_uniprot_ids = uniprot_ids
+            
+            # call the PDB REST service for PDB ids
+            current_pdb_ids, current_rcsb_url = get_pdb_ids(current_uniprot_ids, exp_method)
+                
+            if current_action == 'PdbStructureFromUniProt':
+                run_pdb_structure(intent, current_uniprot_ids, current_pdb_ids)
+            elif current_action == 'PdbLigands':
+                run_pdb_ligands(intent, current_uniprot_ids, current_pdb_ids)
+        
+        user_input = number_words_to_number(speech_to_text())
 
 if __name__ == "__main__":
     global stt_mode
     global tts_mode
 
     parser = argparse.ArgumentParser(description='Conversation about proteins with PDB.')
+    parser.add_argument('-a', '--audio', action="store_true", default=False, help="Full audio mode: equivalent to --listen --speak")
     parser.add_argument('-l', '--listen', action="store_true", default=False, help="Listen and recognize speech to text for input")
     parser.add_argument('-s', '--speak', action="store_true", default=False, help="Synthesize text to speech and speak for output")
     args = parser.parse_args()
-    stt_mode = args.listen
-    tts_mode = args.speak
+    if args.audio:
+        stt_mode = True
+        tts_mode = True
+    else:
+        stt_mode = args.listen
+        tts_mode = args.speak
     run_session()

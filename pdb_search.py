@@ -10,7 +10,9 @@ import requests
 import xml.etree.ElementTree as ET
 from sets import Set
 
-SEARCH_URL = 'https://www.rcsb.org/pdb/rest/search/'
+SEARCH_URL = 'https://www.rcsb.org/pdb/rest/search/?req=browser'
+
+BROWSER_URL = 'http://www.rcsb.org/pdb/results/results.do?qrid='
 
 COMP_QUERY = """
 <orgPdbCompositeQuery version=\"1.0\">
@@ -65,13 +67,14 @@ def search(uniprotIds, expMethod=None):
         response = requests.post(SEARCH_URL, data=QUERY.format(uniprotIds=uniprotIds), headers=HEADERS)
     else:
         response = requests.post(SEARCH_URL, data=COMP_QUERY.format(uniprotIds=uniprotIds, expMethod=expMethod), headers=HEADERS)
-    
+
     if response.status_code == 200:
         pdbChainIds = response.text.split()
+        lastIndex = len(pdbChainIds)-1
         pdbIds = []
-        for p in pdbChainIds:
+        for p in pdbChainIds[0:lastIndex]:
             pdbIds.append(p.split(':')[0])
-        return pdbIds
+        return pdbIds, BROWSER_URL+pdbChainIds[lastIndex]
     else:
         print response.status_code
 
@@ -126,8 +129,5 @@ def getCitationYears(pdbIds):
     root = ET.fromstring(xmlStr)
     dateDict = dict()
     for element in root.iter('VCitation.publicationYear'):
-        y = element.text
-        if y == 'null':
-            y = "Unknown"
-        dateDict[y] = dateDict.get(y, 0) + 1
+        dateDict[element.text] = dateDict.get(element.text, 0) + 1
     return dateDict

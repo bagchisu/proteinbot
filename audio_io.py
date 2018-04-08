@@ -62,13 +62,11 @@ def init_audio():
 
 def listen_for_speech(threshold=THRESHOLD):
     stream = create_rec_stream()
+    stream.read(CHUNK) # throw out the first chunk - sometimes contains junk right after speaker plays audio
     """
     Listens to Microphone, extracts phrases from it. A "phrase" is sound 
-    surrounded by silence (according to threshold). num_phrases controls
-    how many phrases to process before finishing the listening process 
-    (-1 for infinite). 
+    surrounded by silence (according to threshold).
     """
-
     audio2send = []
     cur_data = ''  # current chunk  of audio data
     rel = RATE/CHUNK
@@ -155,7 +153,6 @@ if(__name__ == '__main__'):
     while (True):
         print "Listening..."
         data = listen_for_speech(silence_threshold) # listen to mic.
-        print "Playing back and saving."
-        save_speech(data, "temp")
-        load_play_speech("temp")
+        print "Heard something, playing back..."
+        play_speech(data)
 
