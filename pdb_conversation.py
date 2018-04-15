@@ -6,12 +6,12 @@ Created on Sun Mar  4 09:18:52 2018
 @author: bagchi
 """
 import argparse
-import re
 import webbrowser
 import pdb_search as pdb
 import watson_developer_cloud
 import speech_io
 import myconfig
+import text_processing as tp
 
 # Set up Conversation service.
 conversation = watson_developer_cloud.ConversationV1(
@@ -19,8 +19,6 @@ conversation = watson_developer_cloud.ConversationV1(
   password = myconfig.WatsonConversation.password,
   version = '2017-05-26'
 )
-
-numberNames = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight","nine"]
 
 def text_to_speech(text):
     print '"'+text+'"'
@@ -37,11 +35,6 @@ def speech_to_text():
         return transcript
     else:
         return raw_input('>> ')
-
-def number_words_to_number(text):
-    for val, name in enumerate(numberNames):
-        text = re.sub(r'\b'+name+r'\b', str(val), text)
-    return re.sub(r'(\d)\s+(\d)', r'\1\2', re.sub(r'(\d)\s+(\d)', r'\1\2', text))
 
 def id_to_name(uid):
     uname = pdb.getUniProtName(uid)
@@ -90,14 +83,18 @@ def run_pdb_structure(intent, uniprot_ids, pdbIds):
 
 def run_pdb_ligands(intent, uniprot_ids, pdb_ids):
     ligands = pdb.getLigandNames(pdb_ids)
+    print ",".join(ligands)
     if len(ligands) > 0:
         if len(ligands) > 1:
             user_output = "There are " + str(len(ligands)) + " ligands."
         else:
             user_output = "There is one ligand."
         if intent == 'ligand-names':
+            ligands.sort(key = len)
             user_output += " "
-            user_output += ", ".join(ligands)
+            user_output += ", ".join(ligands[:3])
+            if len(ligands) > 3:
+                user_output += " and "+str(len(ligands) - 3)+" more."
     else:
         user_output = "There are no ligands."
     user_output += get_names(uniprot_ids)
@@ -159,6 +156,8 @@ def run_session():
     current_uniprot_ids = []
     current_pdb_ids = []
     current_rcsb_url = ''
+    prev_action = ''
+    prev_method = None
     
     # Main input/output loop
     while True:
@@ -204,18 +203,26 @@ def run_session():
             exp_method = get_exp_method(parameters)
             # get the uniprot ids found in the entities (if not found, use current ones)
             uniprot_ids = get_uniprot_ids(parameters)
+            valid_proteins = True
             if len(uniprot_ids) > 0:
                 current_uniprot_ids = uniprot_ids
+            else: # no new proteins detected from response
+                if prev_action == current_action and prev_method == exp_method: # if same action is repeated without new protein, assume system didn't understand new protein name
+                    text_to_speech("Sorry, I can't recognize the protein name.")
+                    valid_proteins = False
             
-            # call the PDB REST service for PDB ids
-            current_pdb_ids, current_rcsb_url = get_pdb_ids(current_uniprot_ids, exp_method)
-                
-            if current_action == 'PdbStructureFromUniProt':
-                run_pdb_structure(intent, current_uniprot_ids, current_pdb_ids)
-            elif current_action == 'PdbLigands':
-                run_pdb_ligands(intent, current_uniprot_ids, current_pdb_ids)
+            if valid_proteins:
+                # call the PDB REST service for PDB ids
+                current_pdb_ids, current_rcsb_url = get_pdb_ids(current_uniprot_ids, exp_method)
+                    
+                if current_action == 'PdbStructureFromUniProt':
+                    run_pdb_structure(intent, current_uniprot_ids, current_pdb_ids)
+                elif current_action == 'PdbLigands':
+                    run_pdb_ligands(intent, current_uniprot_ids, current_pdb_ids)
+                prev_action = current_action
+                prev_method = exp_method
         
-        user_input = number_words_to_number(speech_to_text())
+        user_input = tp.normalize(speech_to_text())
 
 if __name__ == "__main__":
     global stt_mode
