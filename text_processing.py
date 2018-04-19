@@ -6,6 +6,7 @@ letterWords = [
     ("sea", "C"), ("see", "C"),
     ("eye", "I"),
     ("pea", "P"),
+    ("are", "R"),
     ("tee", "T"), ("tea", "T"),
     ("you", "U"), ("ex", "X")
 ]

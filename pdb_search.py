@@ -131,3 +131,11 @@ def getCitationYears(pdbIds):
     for element in root.iter('VCitation.publicationYear'):
         dateDict[element.text] = dateDict.get(element.text, 0) + 1
     return dateDict
+
+def getCitationTitles(pdbIds):
+    xmlStr = runStandardReport(pdbIds, 'Citation')
+    root = ET.fromstring(xmlStr)
+    pub_titles = Set()
+    for element in root.iter('VCitation.title'):
+        pub_titles.add(element.text)
+    return list(pub_titles)

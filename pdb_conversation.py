@@ -135,6 +135,18 @@ def run_citation_dates(pdb_ids):
         user_output = "There are no structures."
     text_to_speech(user_output)
 
+def run_citation_titles(pdb_ids):
+    if pdb_ids:
+        titles = pdb.getCitationTitles(pdb_ids)
+        print "\n".join(titles)
+        text_to_speech("Here are the citation titles.")
+        for t in titles[:3]:
+            text_to_speech(t)
+        if (len(titles) > 3):
+            text_to_speech("And "+str(len(titles)-3)+" more.")
+    else:
+        text_to_speech("There are no citation titles.")
+
 def run_structure_titles(pdb_ids):
     if pdb_ids:
         titles = pdb.getStructureTitles(pdb_ids)
@@ -188,6 +200,8 @@ def run_session():
             run_release_dates(current_pdb_ids)
         elif intent == 'citation-dates':
             run_citation_dates(current_pdb_ids)
+        elif intent == 'citation-titles':
+            run_citation_titles(current_pdb_ids)
         elif intent == 'structure-titles':
             run_structure_titles(current_pdb_ids)
 

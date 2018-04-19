@@ -16,6 +16,7 @@ Ligands information from PDB:
 Other structure information from PDB about the proteins in context:
 - `#structure-titles` Get the structure titles
 - `#release-dates` Structure release dates
+- `#citation-titles` Citation titles
 - `#citation-dates` Citations by year
 - `#show-details` Show detailed info on a browser
 

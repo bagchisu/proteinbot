@@ -60,5 +60,9 @@ print "\nCitation years:"
 for y in sorted(citationYears):
     print y, citationYears[y]
 
+citationTitles = pdb.getCitationTitles(pdbs)
+print "Citation titles:"
+print "\n".join(citationTitles[:3])
+
 print "Opening", rcsb_url
 webbrowser.open(rcsb_url)
